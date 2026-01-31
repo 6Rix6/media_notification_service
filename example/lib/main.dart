@@ -84,65 +84,68 @@ class _MyAppState extends State<MyApp> {
       home: Scaffold(
         appBar: AppBar(title: Text('Media Notification Service')),
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            spacing: 16,
-            children: [
-              if (!_hasPermission)
-                ElevatedButton(
-                  onPressed: _openSettings,
-                  child: Text('Open Permission Settings'),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 16,
+              children: [
+                if (!_hasPermission)
+                  ElevatedButton(
+                    onPressed: _openSettings,
+                    child: Text('Open Permission Settings'),
+                  ),
+
+                // album art (Uint8List)
+                if (_currentMedia?.albumArt != null)
+                  Image.memory(
+                    _currentMedia!.albumArt!,
+                    height: 300,
+                    width: 300,
+                    fit: BoxFit.cover,
+                  ),
+
+                // title and artist
+                Text(
+                  _currentMedia?.title ?? 'No media',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                Text(_currentMedia?.artist ?? '', textAlign: TextAlign.center),
+
+                // progress slider
+                Slider(
+                  value: _position?.progress ?? 0, // normalized 0 to 1
+                  onChanged: (value) {
+                    if (_position == null) return;
+                    final newPosition = Duration(
+                      milliseconds: (value * _position!.duration.inMilliseconds)
+                          .toInt(),
+                    );
+                    _service.seekTo(newPosition);
+                  },
                 ),
 
-              // album art (Uint8List)
-              if (_currentMedia?.albumArt != null)
-                Image.memory(
-                  _currentMedia!.albumArt!,
-                  height: 300,
-                  width: 300,
-                  fit: BoxFit.cover,
+                // controls
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.skip_previous, size: 32),
+                      onPressed: () => _service.skipToPrevious(),
+                    ),
+                    IconButton(
+                      icon: PlayPauseIcon(state: _currentMedia?.state),
+                      onPressed: () => _service.playPause(),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.skip_next, size: 32),
+                      onPressed: () => _service.skipToNext(),
+                    ),
+                  ],
                 ),
-
-              // title and artist
-              Text(
-                _currentMedia?.title ?? 'No media',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              Text(_currentMedia?.artist ?? '', textAlign: TextAlign.center),
-
-              // progress slider
-              Slider(
-                value: _position?.progress ?? 0, // normalized 0 to 1
-                onChanged: (value) {
-                  if (_position == null) return;
-                  final newPosition = Duration(
-                    milliseconds: (value * _position!.duration.inMilliseconds)
-                        .toInt(),
-                  );
-                  _service.seekTo(newPosition);
-                },
-              ),
-
-              // controls
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.skip_previous, size: 32),
-                    onPressed: () => _service.skipToPrevious(),
-                  ),
-                  IconButton(
-                    icon: PlayPauseIcon(state: _currentMedia?.state),
-                    onPressed: () => _service.playPause(),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.skip_next, size: 32),
-                    onPressed: () => _service.skipToNext(),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
