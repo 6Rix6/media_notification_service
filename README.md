@@ -7,14 +7,14 @@ A Flutter plugin for Android that allows you to access and control media playing
 - Access currently playing media information (title, artist, album, album art)
 - Control playback (play, pause, skip, stop, seek)
 - Real-time playback position tracking
-- Queue information (next/previous tracks)
+- Queue information
+- Skip to queue item
 - Stream-based updates for media changes
 - Album art retrieval
 
 ## Requirements
 
 - Flutter SDK: `>=3.0.0`
-- Android SDK: API 21+ (Android 5.0 Lollipop or higher)
 - Kotlin support enabled in your Android project
 
 ## Setup
@@ -60,15 +60,21 @@ Users must grant notification listener permission to your app. You can check and
 final service = MediaNotificationService();
 
 // Check if permission is granted
-final hasPermission = await service.hasPermission();
+bool hasPermission = await service.hasPermission();
 
 if (!hasPermission) {
   // Open system settings to grant permission
+  // openSettings() waits for the user to return from settings
   await service.openSettings();
+
+  // Check again after opening settings
+  hasPermission = await service.hasPermission();
 }
 ```
 
 ## API Reference
+
+> see example app for more details.
 
 ### MediaNotificationService
 
@@ -76,72 +82,23 @@ Main service class for interacting with media sessions.
 
 #### Methods
 
-| Method              | Return Type                   | Description                                               |
-| ------------------- | ----------------------------- | --------------------------------------------------------- |
-| `mediaStream`       | `Stream<MediaInfoWithQueue?>` | Stream of media information updates                       |
-| `positionStream`    | `Stream<PositionInfo?>`       | Stream of playback position updates                       |
-| `getCurrentMedia()` | `Future<MediaInfo?>`          | Get current media information                             |
-| `hasPermission()`   | `Future<bool>`                | Check if notification listener permission is granted      |
-| `openSettings()`    | `Future<void>`                | Open system settings for notification listener permission |
-| `playPause()`       | `Future<bool>`                | Toggle play/pause                                         |
-| `skipToNext()`      | `Future<bool>`                | Skip to next track                                        |
-| `skipToPrevious()`  | `Future<bool>`                | Skip to previous track                                    |
-| `stop()`            | `Future<bool>`                | Stop playback                                             |
-| `seekTo(Duration)`  | `Future<bool>`                | Seek to specific position                                 |
+| Method                      | Return Type                   | Description                                               |
+| --------------------------- | ----------------------------- | --------------------------------------------------------- |
+| `mediaStream`               | `Stream<MediaInfoWithQueue?>` | Stream of media information updates                       |
+| `positionStream`            | `Stream<PositionInfo?>`       | Stream of playback position updates                       |
+| `queueStream`               | `Stream<List<QueueItem?>?>`   | Stream of queue updates                                   |
+| `getCurrentMedia()`         | `Future<MediaInfo?>`          | Get current media information                             |
+| `getQueue()`                | `Future<List<QueueItem?>?>`   | Get current queue                                         |
+| `hasPermission()`           | `Future<bool>`                | Check if notification listener permission is granted      |
+| `openSettings()`            | `Future<void>`                | Open system settings for notification listener permission |
+| `playPause()`               | `Future<bool>`                | Toggle play/pause                                         |
+| `skipToNext()`              | `Future<bool>`                | Skip to next track                                        |
+| `skipToPrevious()`          | `Future<bool>`                | Skip to previous track                                    |
+| `stop()`                    | `Future<bool>`                | Stop playback                                             |
+| `seekTo(Duration position)` | `Future<bool>`                | Seek to specific position                                 |
+| `skipToQueueItem(int id)`   | `Future<bool>`                | Skip to specific queue item                               |
 
-### Models
-
-#### MediaInfo
-
-```dart
-class MediaInfo {
-  final String? title;
-  final String? artist;
-  final String? album;
-  final String? packageName;
-  final Uint8List? albumArt;
-  final bool isPlaying;
-  final PlaybackState state;
-}
-```
-
-#### QueueItem
-
-```dart
-class QueueItem {
-  final String? title;
-  final String? artist;
-  final Uint8List? albumArt;
-  final Uri? albumArtUri;
-}
-```
-
-#### PositionInfo
-
-```dart
-class PositionInfo {
-  final Duration position;
-  final Duration duration;
-  final double playbackSpeed;
-  final PlaybackState state;
-
-  double get progress; // Returns 0.0 to 1.0
-}
-```
-
-#### MediaInfoWithQueue
-
-```dart
-class MediaInfoWithQueue {
-  final MediaInfo mediaInfo;
-  final QueueItem? nextItem;
-  final QueueItem? previousItem;
-  final bool songChanged;
-  final bool queueChanged;
-}
-```
-
-#### PlaybackState
+### PlaybackState
 
 Enum representing the current playback state:
 
@@ -168,21 +125,9 @@ see [Android Developers](https://developer.android.com/reference/android/media/s
 - The app cannot programmatically grant this permission
 - Always check `hasPermission()` before using media controls
 
-### Album Art Optimization
-
-To prevent unnecessary memory usage, album art is only updated when:
-
-- The song changes
-- Album art was previously null
-- You explicitly request it via `getCurrentMedia()`
-
 ### Limitations
 
 - Only works on Android
 - Requires the media app to properly implement MediaSession
 - Some apps may not provide complete metadata
 - Album art size depends on the source app (may be large)
-
-## TODO
-
-- [ ] Add proper error handling
