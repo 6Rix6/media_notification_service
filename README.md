@@ -131,3 +131,7 @@ see [Android Developers](https://developer.android.com/reference/android/media/s
 - Requires the media app to properly implement MediaSession
 - Some apps may not provide complete metadata
 - Album art size depends on the source app (may be large)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
