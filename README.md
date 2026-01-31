@@ -11,24 +11,13 @@ A Flutter plugin for Android that allows you to access and control media playing
 - Stream-based updates for media changes
 - Album art retrieval
 
-## Platform Support
-
-| Platform | Support |
-| -------- | ------- |
-| Android  | ✅      |
-| iOS      | ❌      |
-| Web      | ❌      |
-| Windows  | ❌      |
-| macOS    | ❌      |
-| Linux    | ❌      |
-
 ## Requirements
 
 - Flutter SDK: `>=3.0.0`
 - Android SDK: API 21+ (Android 5.0 Lollipop or higher)
 - Kotlin support enabled in your Android project
 
-## Android Setup
+## Setup
 
 ### 1. Update AndroidManifest.xml
 
