@@ -97,6 +97,26 @@ class MediaInfo {
     );
   }
 
+  MediaInfo copyWith({
+    String? title,
+    String? artist,
+    String? album,
+    String? packageName,
+    Uint8List? albumArt,
+    bool? isPlaying,
+    PlaybackState? state,
+  }) {
+    return MediaInfo(
+      title: title ?? this.title,
+      artist: artist ?? this.artist,
+      album: album ?? this.album,
+      packageName: packageName ?? this.packageName,
+      albumArt: albumArt ?? this.albumArt,
+      isPlaying: isPlaying ?? this.isPlaying,
+      state: state ?? this.state,
+    );
+  }
+
   @override
   String toString() {
     return 'MediaInfo(title: $title, artist: $artist, isPlaying: $isPlaying)';
@@ -182,7 +202,7 @@ class PositionInfo {
 
   double get progress {
     if (duration.inMilliseconds == 0) return 0.0;
-    return position.inMilliseconds / duration.inMilliseconds;
+    return (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
   }
 
   @override
