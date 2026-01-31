@@ -19,19 +19,22 @@ class MediaNotificationServicePlugin: FlutterPlugin, MethodChannel.MethodCallHan
     ActivityAware, PluginRegistry.ActivityResultListener {
     
     private lateinit var channel: MethodChannel
-    private lateinit var eventChannel: EventChannel
+    private lateinit var mediaEventChannel: EventChannel
     private lateinit var positionEventChannel: EventChannel
+    private lateinit var queueEventChannel: EventChannel
     private var context: Context? = null
     private var activityBinding: ActivityPluginBinding? = null
     private var pendingSettingsResult: MethodChannel.Result? = null
     
-    private var eventSink: EventChannel.EventSink? = null
+    private var mediaEventSink: EventChannel.EventSink? = null
     private var positionEventSink: EventChannel.EventSink? = null
+    private var queueEventSink: EventChannel.EventSink? = null
 
     companion object {
         private const val CHANNEL = "com.example.media_notification_service/media"
         private const val EVENT_CHANNEL = "com.example.media_notification_service/media_stream"
         private const val POSITION_EVENT_CHANNEL = "com.example.media_notification_service/position_stream"
+        private const val QUEUE_EVENT_CHANNEL = "com.example.media_notification_service/queue_stream"
         private const val SETTINGS_REQUEST_CODE = 1001
     }
 
@@ -41,18 +44,18 @@ class MediaNotificationServicePlugin: FlutterPlugin, MethodChannel.MethodCallHan
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, CHANNEL)
         channel.setMethodCallHandler(this)
         
-        eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, EVENT_CHANNEL)
-        eventChannel.setStreamHandler(object : EventChannel.StreamHandler {
+        mediaEventChannel = EventChannel(flutterPluginBinding.binaryMessenger, EVENT_CHANNEL)
+        mediaEventChannel.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                eventSink = events
-                MediaNotificationListener.setCallback { mediaInfo ->
-                    eventSink?.success(mediaInfo)
+                mediaEventSink = events
+                MediaNotificationListener.setMediaCallback { mediaInfo ->
+                    mediaEventSink?.success(mediaInfo)
                 }
             }
 
             override fun onCancel(arguments: Any?) {
-                eventSink = null
-                MediaNotificationListener.setCallback(null)
+                mediaEventSink = null
+                MediaNotificationListener.setMediaCallback(null)
             }
         })
         
@@ -70,6 +73,22 @@ class MediaNotificationServicePlugin: FlutterPlugin, MethodChannel.MethodCallHan
                 MediaNotificationListener.setPositionCallback(null)
             }
         })
+
+        queueEventChannel = EventChannel(flutterPluginBinding.binaryMessenger, QUEUE_EVENT_CHANNEL)
+        queueEventChannel.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                queueEventSink = events
+                MediaNotificationListener.setQueueCallback { queueInfo ->
+                    queueEventSink?.success(queueInfo)
+                }
+            }
+
+            override fun onCancel(arguments: Any?) {
+                queueEventSink = null
+                MediaNotificationListener.setQueueCallback(null)
+            }
+        })
+
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -77,6 +96,10 @@ class MediaNotificationServicePlugin: FlutterPlugin, MethodChannel.MethodCallHan
             "getCurrentMedia" -> {
                 val mediaInfo = getCurrentMediaInfo()
                 result.success(mediaInfo)
+            }
+            "getQueue" -> {
+                val queueInfo = getQueue()
+                result.success(queueInfo)
             }
             "hasPermission" -> {
                 result.success(hasNotificationPermission())
@@ -109,6 +132,16 @@ class MediaNotificationServicePlugin: FlutterPlugin, MethodChannel.MethodCallHan
                     result.success(success)
                 } else {
                     result.error("INVALID_ARGUMENT", "Position must not be null", null)
+                }
+            }
+            "skipToQueueItem" -> {
+                val id = call.argument<Number>("id")
+                if (id != null) {
+                    val longId = id.toLong()
+                    val success = skipToQueueItem(longId)
+                    result.success(success)
+                } else {
+                    result.error("INVALID_ARGUMENT", "Id must not be null", null)
                 }
             }
             else -> result.notImplemented()
@@ -148,6 +181,29 @@ class MediaNotificationServicePlugin: FlutterPlugin, MethodChannel.MethodCallHan
                         "state" to playbackState?.state?.toPlaybackStateString()
                     )
                 }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return null
+    }
+
+    private fun getQueue(): List<Map<String, Any?>>? {
+        val ctx = context ?: return null
+
+        try {
+            val mediaSessionManager = ctx.getSystemService(Context.MEDIA_SESSION_SERVICE)
+                    as MediaSessionManager
+
+            val componentName = ComponentName(ctx, MediaNotificationListener::class.java)
+            val controllers = mediaSessionManager.getActiveSessions(componentName)
+
+            if (controllers.isNotEmpty()) {
+                val controller = controllers[0]
+                val queue = controller.queue
+
+                return queue?.map { it?.toMap() ?: emptyMap() }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -197,6 +253,28 @@ class MediaNotificationServicePlugin: FlutterPlugin, MethodChannel.MethodCallHan
             if (controllers.isNotEmpty()) {
                 val controller = controllers[0]
                 controller.transportControls.seekTo(positionMs)
+                return true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return false
+    }
+
+    private fun skipToQueueItem(id: Long): Boolean {
+        val ctx = context ?: return false
+
+        try {
+            val mediaSessionManager = ctx.getSystemService(Context.MEDIA_SESSION_SERVICE)
+                    as MediaSessionManager
+
+            val componentName = ComponentName(ctx, MediaNotificationListener::class.java)
+            val controllers = mediaSessionManager.getActiveSessions(componentName)
+
+            if (controllers.isNotEmpty()) {
+                val controller = controllers[0]
+                controller.transportControls.skipToQueueItem(id)
                 return true
             }
         } catch (e: Exception) {

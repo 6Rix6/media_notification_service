@@ -13,15 +13,20 @@ import android.service.notification.NotificationListenerService
 class MediaNotificationListener : NotificationListenerService() {
 
     companion object {
-        private var callback: ((Map<String, Any?>?) -> Unit)? = null
+        private var mediaCallback: ((Map<String, Any?>?) -> Unit)? = null
         private var positionCallback: ((Map<String, Any?>?) -> Unit)? = null
+        private var queueCallback: ((List<Map<String, Any?>>?) -> Unit)? = null
 
-        fun setCallback(cb: ((Map<String, Any?>?) -> Unit)?) {
-            callback = cb
+        fun setMediaCallback(cb: ((Map<String, Any?>?) -> Unit)?) {
+            mediaCallback = cb
         }
 
         fun setPositionCallback(cb: ((Map<String, Any?>?) -> Unit)?) {
             positionCallback = cb
+        }
+
+        fun setQueueCallback(cb: ((List<Map<String, Any?>>?) -> Unit)?) {
+            queueCallback = cb
         }
     }
 
@@ -29,10 +34,9 @@ class MediaNotificationListener : NotificationListenerService() {
     private val mediaControllerCallbacks = mutableMapOf<MediaController, MediaController.Callback>()
     private var currentController: MediaController? = null
 
-    // Position更新用
     private val positionHandler = Handler(Looper.getMainLooper())
     private var positionUpdateRunnable: Runnable? = null
-    private val POSITION_UPDATE_INTERVAL = 100L // 100ms間隔で更新
+    private val POSITION_UPDATE_INTERVAL = 100L
 
     override fun onListenerConnected() {
         super.onListenerConnected()
@@ -74,12 +78,10 @@ class MediaNotificationListener : NotificationListenerService() {
                         queueChanged = false
                     )
 
-                    // 再生状態が変わったらPosition更新を開始/停止
                     if (state?.state == PlaybackState.STATE_PLAYING) {
                         startPositionUpdates(controller)
                     } else {
                         stopPositionUpdates()
-                        // 停止時も現在の位置を送信
                         notifyPositionChange(controller, state)
                     }
                 }
@@ -89,13 +91,13 @@ class MediaNotificationListener : NotificationListenerService() {
                         songChanged = false,
                         queueChanged = true
                     )
+                    notifyQueueChange(queue)
                 }
             }
 
             controller.registerCallback(callback)
             mediaControllerCallbacks[controller] = callback
 
-            // 初期状態でも再生中ならPosition更新を開始
             if (controller.playbackState?.state == PlaybackState.STATE_PLAYING) {
                 startPositionUpdates(controller)
             }
@@ -122,24 +124,6 @@ class MediaNotificationListener : NotificationListenerService() {
         positionUpdateRunnable = null
     }
 
-    private fun notifyPositionChange(controller: MediaController, state: PlaybackState?) {
-        if (state == null) {
-            positionCallback?.invoke(null)
-            return
-        }
-
-        val position = state.position
-        val duration = controller.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
-        val playbackSpeed = state.playbackSpeed
-
-        positionCallback?.invoke(mapOf(
-            "position" to position,
-            "duration" to duration,
-            "playbackSpeed" to playbackSpeed,
-            "state" to state.state.toPlaybackStateString()
-        ))
-    }
-
     private fun notifyMediaChange(
         controller: MediaController,
         metadata: MediaMetadata?,
@@ -151,7 +135,7 @@ class MediaNotificationListener : NotificationListenerService() {
         val isPlaying = state?.state == PlaybackState.STATE_PLAYING
 
         if (!isMediaExisting) {
-            callback?.invoke(null)
+            mediaCallback?.invoke(null)
             return
         }
 
@@ -170,10 +154,11 @@ class MediaNotificationListener : NotificationListenerService() {
         val prevItem = queue.getOrNull(currentQueueIndex - 1)?.toMap() ?: emptyMap()
 
 
-        callback?.invoke(mapOf(
+        mediaCallback?.invoke(mapOf(
             "title" to metadata?.getString(MediaMetadata.METADATA_KEY_TITLE),
             "artist" to metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST),
             "album" to metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM),
+            "queueIndex" to currentQueueIndex,
             "packageName" to controller.packageName,
             "albumArt" to albumArtBytes,
             "isPlaying" to isPlaying,
@@ -183,6 +168,34 @@ class MediaNotificationListener : NotificationListenerService() {
             "nextItem" to nextItem,
             "previousItem" to prevItem,
         ))
+    }
+
+    private fun notifyPositionChange(controller: MediaController, state: PlaybackState?) {
+        if (state == null) {
+            positionCallback?.invoke(null)
+            return
+        }
+
+        val position = state.position
+        val duration = controller.metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
+        val playbackSpeed = state.playbackSpeed
+
+        positionCallback?.invoke(mapOf(
+            "position" to position,
+            "duration" to duration,
+            "playbackSpeed" to playbackSpeed,
+            "state" to state.state.toPlaybackStateString()
+        ))
+    }
+
+    private fun notifyQueueChange(queue: List<MediaSession.QueueItem?>?){
+        if (queue == null) {
+            queueCallback?.invoke(null)
+            return
+        }
+
+        val queueInfo = queue.map { it?.toMap() ?: emptyMap() }
+        queueCallback?.invoke(queueInfo)
     }
 
     override fun onListenerDisconnected() {

@@ -5,18 +5,22 @@ class MediaNotificationService {
   static const _platform = MethodChannel(
     'com.example.media_notification_service/media',
   );
-  static const _eventChannel = EventChannel(
+  static const _mediaEventChannel = EventChannel(
     'com.example.media_notification_service/media_stream',
   );
   static const _positionEventChannel = EventChannel(
     'com.example.media_notification_service/position_stream',
   );
+  static const _queueEventChannel = EventChannel(
+    'com.example.media_notification_service/queue_stream',
+  );
 
   Stream<MediaInfoWithQueue?>? _mediaStream;
   Stream<PositionInfo?>? _positionStream;
+  Stream<List<QueueItem?>>? _queueStream;
 
   Stream<MediaInfoWithQueue?> get mediaStream {
-    _mediaStream ??= _eventChannel.receiveBroadcastStream().map((event) {
+    _mediaStream ??= _mediaEventChannel.receiveBroadcastStream().map((event) {
       if (event == null) return null;
       final map = event as Map;
       return MediaInfoWithQueue.fromMap(map);
@@ -35,6 +39,15 @@ class MediaNotificationService {
     return _positionStream!;
   }
 
+  Stream<List<QueueItem?>> get queueStream {
+    _queueStream ??= _queueEventChannel.receiveBroadcastStream().map((event) {
+      if (event == null) return [];
+      final list = event as List;
+      return list.map((e) => QueueItem.fromMap(e)).toList();
+    });
+    return _queueStream!;
+  }
+
   Future<MediaInfo?> getCurrentMedia() async {
     try {
       final Map<dynamic, dynamic>? result = await _platform.invokeMethod(
@@ -45,6 +58,17 @@ class MediaNotificationService {
     } on PlatformException catch (e) {
       print("Failed to get media info: ${e.message}");
       return null;
+    }
+  }
+
+  Future<List<QueueItem?>> getQueue() async {
+    try {
+      final List<dynamic>? result = await _platform.invokeMethod('getQueue');
+      if (result == null) return [];
+      return result.map((e) => QueueItem.fromMap(e)).toList();
+    } on PlatformException catch (e) {
+      print("Failed to get queue: ${e.message}");
+      return [];
     }
   }
 
@@ -113,6 +137,18 @@ class MediaNotificationService {
       return result;
     } catch (e) {
       print("Failed to seek: $e");
+      return false;
+    }
+  }
+
+  Future<bool> skipToQueueItem(int id) async {
+    try {
+      final bool result = await _platform.invokeMethod('skipToQueueItem', {
+        'id': id,
+      });
+      return result;
+    } catch (e) {
+      print("Failed to skip to queue item: $e");
       return false;
     }
   }

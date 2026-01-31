@@ -20,31 +20,32 @@ class _MyAppState extends State<MyApp> {
   // subscriptions
   StreamSubscription? _mediaSub;
   StreamSubscription? _positionSub;
+  StreamSubscription? _queueSub;
 
   MediaInfo? _currentMedia;
   PositionInfo? _position;
+  List<QueueItem?>? _queue;
   bool _hasPermission = false;
 
   @override
   void initState() {
     super.initState();
     _initService();
-    _checkPermission();
   }
 
-  void _checkPermission() async {
+  Future<void> _checkPermission() async {
     final hasPermission = await _service.hasPermission();
     setState(() {
       _hasPermission = hasPermission;
     });
   }
 
-  void _openSettings() async {
+  Future<void> _openSettings() async {
     await _service.openSettings();
-    _checkPermission();
+    await _checkPermission();
   }
 
-  void _initService() {
+  void _initService() async {
     // Listen to media changes
     _mediaSub = _service.mediaStream.listen((data) {
       if (data != null) {
@@ -69,12 +70,34 @@ class _MyAppState extends State<MyApp> {
         _position = position;
       });
     });
+
+    // Listen to queue updates
+    _queueSub = _service.queueStream.listen((queue) {
+      print('Queue updated: $queue');
+      setState(() {
+        _queue = queue;
+      });
+    });
+
+    // check permission
+    await _checkPermission();
+
+    // get initial data
+    if (_hasPermission) {
+      final media = await _service.getCurrentMedia();
+      final queue = await _service.getQueue();
+      setState(() {
+        _currentMedia = media;
+        _queue = queue;
+      });
+    }
   }
 
   @override
   void dispose() {
     _mediaSub?.cancel();
     _positionSub?.cancel();
+    _queueSub?.cancel();
     super.dispose();
   }
 
@@ -88,7 +111,7 @@ class _MyAppState extends State<MyApp> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              spacing: 16,
+              spacing: 8,
               children: [
                 if (!_hasPermission)
                   ElevatedButton(
@@ -98,12 +121,7 @@ class _MyAppState extends State<MyApp> {
 
                 // album art (Uint8List)
                 if (_currentMedia?.albumArt != null)
-                  Image.memory(
-                    _currentMedia!.albumArt!,
-                    height: 300,
-                    width: 300,
-                    fit: BoxFit.cover,
-                  ),
+                  Image.memory(_currentMedia!.albumArt!, height: 200),
 
                 // title and artist
                 Text(
@@ -144,6 +162,34 @@ class _MyAppState extends State<MyApp> {
                     ),
                   ],
                 ),
+
+                // queue
+                if (_queue != null && _queue!.isNotEmpty) ...[
+                  Divider(),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _queue!.length,
+                      itemBuilder: (context, index) {
+                        final item = _queue![index];
+                        final isActive = index == _currentMedia?.queueIndex;
+                        return Material(
+                          color: isActive ? Colors.grey[200] : null,
+                          child: ListTile(
+                            leading: QueueArt(item: item),
+                            title: Text(item?.title ?? 'Unknown'),
+                            subtitle: Text(item?.artist ?? ''),
+                            onTap: () {
+                              final id = item?.id;
+                              if (id != null) {
+                                _service.skipToQueueItem(id);
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -166,5 +212,25 @@ class PlayPauseIcon extends StatelessWidget {
       state?.isPlaying == true ? Icons.pause : Icons.play_arrow,
       size: 48,
     );
+  }
+}
+
+class QueueArt extends StatelessWidget {
+  final QueueItem? item;
+  const QueueArt({super.key, required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    if (item == null) return Icon(Icons.music_note);
+    final albumArt = item!.albumArt;
+    final albumArtUri = item!.albumArtUri;
+    if (albumArt != null) {
+      return Image.memory(albumArt, width: 40);
+    } else if (albumArtUri != null) {
+      // queue image could be uri (file or http)
+      return Image.network(albumArtUri.toString(), width: 40);
+    } else {
+      return Icon(Icons.music_note);
+    }
   }
 }

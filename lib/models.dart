@@ -61,6 +61,7 @@ class MediaInfo {
   final String? title;
   final String? artist;
   final String? album;
+  final int? queueIndex;
   final String? packageName;
   final Uint8List? albumArt;
   final bool isPlaying;
@@ -70,6 +71,7 @@ class MediaInfo {
     this.title,
     this.artist,
     this.album,
+    this.queueIndex,
     this.packageName,
     this.albumArt,
     this.isPlaying = false,
@@ -90,6 +92,7 @@ class MediaInfo {
       title: map['title'] as String?,
       artist: map['artist'] as String?,
       album: map['album'] as String?,
+      queueIndex: map['queueIndex'] as int?,
       packageName: map['packageName'] as String?,
       albumArt: updateArt ? map['albumArt'] as Uint8List? : oldMedia?.albumArt,
       isPlaying: map['isPlaying'] as bool? ?? false,
@@ -101,6 +104,7 @@ class MediaInfo {
     String? title,
     String? artist,
     String? album,
+    int? queueIndex,
     String? packageName,
     Uint8List? albumArt,
     bool? isPlaying,
@@ -110,6 +114,7 @@ class MediaInfo {
       title: title ?? this.title,
       artist: artist ?? this.artist,
       album: album ?? this.album,
+      queueIndex: queueIndex ?? this.queueIndex,
       packageName: packageName ?? this.packageName,
       albumArt: albumArt ?? this.albumArt,
       isPlaying: isPlaying ?? this.isPlaying,
@@ -154,15 +159,23 @@ class MediaInfoWithQueue {
 }
 
 class QueueItem {
+  final int? id;
   final String? title;
   final String? artist;
   final Uint8List? albumArt;
   final Uri? albumArtUri;
 
-  QueueItem({this.title, this.artist, this.albumArt, this.albumArtUri});
+  QueueItem({
+    this.id,
+    this.title,
+    this.artist,
+    this.albumArt,
+    this.albumArtUri,
+  });
 
   factory QueueItem.fromMap(Map<dynamic, dynamic> map) {
     return QueueItem(
+      id: map['id'] as int?,
       title: map['title'] as String?,
       artist: map['artist'] as String?,
       albumArt: map['albumArt'] as Uint8List?,

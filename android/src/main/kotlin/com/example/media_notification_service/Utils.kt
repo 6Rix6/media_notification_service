@@ -32,6 +32,7 @@ fun Int.toPlaybackStateString(): String {
 fun MediaSession.QueueItem.toMap(): Map<String, Any?> {
     val desc = description
     return mapOf(
+        "id" to queueId,
         "title" to desc.title?.toString(),
         "artist" to desc.subtitle?.toString(),
         "albumArt" to desc.iconBitmap?.let { bitmapToByteArray(it) },
