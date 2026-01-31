@@ -259,20 +259,6 @@ Enum representing the current playback state:
 
 see [Android Developers](https://developer.android.com/reference/android/media/session/PlaybackState#nested-classes)
 
-## How It Works
-
-This plugin uses Android's `MediaSessionManager` and `NotificationListenerService` to:
-
-1. **Monitor Active Media Sessions**: Listens to all active media sessions from other apps
-2. **Extract Media Metadata**: Retrieves title, artist, album, and album art from the MediaMetadata
-3. **Track Playback State**: Monitors play/pause state and playback position
-4. **Control Playback**: Sends media button events to control the active media session
-5. **Queue Information**: Accesses the media queue to show next/previous tracks
-
-### Position Updates
-
-The plugin provides real-time position updates at 100ms intervals when media is playing. This allows for smooth progress bars and accurate time displays.
-
 ## Important Notes
 
 ### Permissions
@@ -295,3 +281,7 @@ To prevent unnecessary memory usage, album art is only updated when:
 - Requires the media app to properly implement MediaSession
 - Some apps may not provide complete metadata
 - Album art size depends on the source app (may be large)
+
+## TODO
+
+- [ ] Add proper error handling
