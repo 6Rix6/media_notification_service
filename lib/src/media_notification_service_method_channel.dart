@@ -1,17 +1,28 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'models.dart';
 
-class MediaNotificationService {
-  static const _platform = MethodChannel(
+import 'models.dart';
+import 'media_notification_service_platform_interface.dart';
+
+class MediaNotificationServiceMethodChannel
+    extends MediaNotificationServicePlatform {
+  @visibleForTesting
+  static const methodChannel = MethodChannel(
     'com.example.media_notification_service/media',
   );
-  static const _mediaEventChannel = EventChannel(
+
+  @visibleForTesting
+  static const mediaEventChannel = EventChannel(
     'com.example.media_notification_service/media_stream',
   );
-  static const _positionEventChannel = EventChannel(
+
+  @visibleForTesting
+  static const positionEventChannel = EventChannel(
     'com.example.media_notification_service/position_stream',
   );
-  static const _queueEventChannel = EventChannel(
+
+  @visibleForTesting
+  static const queueEventChannel = EventChannel(
     'com.example.media_notification_service/queue_stream',
   );
 
@@ -19,8 +30,9 @@ class MediaNotificationService {
   Stream<PositionInfo?>? _positionStream;
   Stream<List<QueueItem?>>? _queueStream;
 
+  @override
   Stream<MediaInfoWithQueue?> get mediaStream {
-    _mediaStream ??= _mediaEventChannel.receiveBroadcastStream().map((event) {
+    _mediaStream ??= mediaEventChannel.receiveBroadcastStream().map((event) {
       if (event == null) return null;
       final map = event as Map;
       return MediaInfoWithQueue.fromMap(map);
@@ -28,8 +40,9 @@ class MediaNotificationService {
     return _mediaStream!;
   }
 
+  @override
   Stream<PositionInfo?> get positionStream {
-    _positionStream ??= _positionEventChannel.receiveBroadcastStream().map((
+    _positionStream ??= positionEventChannel.receiveBroadcastStream().map((
       event,
     ) {
       if (event == null) return null;
@@ -39,8 +52,9 @@ class MediaNotificationService {
     return _positionStream!;
   }
 
+  @override
   Stream<List<QueueItem?>> get queueStream {
-    _queueStream ??= _queueEventChannel.receiveBroadcastStream().map((event) {
+    _queueStream ??= queueEventChannel.receiveBroadcastStream().map((event) {
       if (event == null) return [];
       final list = event as List;
       return list.map((e) => QueueItem.fromMap(e)).toList();
@@ -48,9 +62,10 @@ class MediaNotificationService {
     return _queueStream!;
   }
 
+  @override
   Future<MediaInfo?> getCurrentMedia() async {
     try {
-      final Map<dynamic, dynamic>? result = await _platform.invokeMethod(
+      final Map<dynamic, dynamic>? result = await methodChannel.invokeMethod(
         'getCurrentMedia',
       );
       if (result == null) return null;
@@ -61,9 +76,12 @@ class MediaNotificationService {
     }
   }
 
+  @override
   Future<List<QueueItem?>> getQueue() async {
     try {
-      final List<dynamic>? result = await _platform.invokeMethod('getQueue');
+      final List<dynamic>? result = await methodChannel.invokeMethod(
+        'getQueue',
+      );
       if (result == null) return [];
       return result.map((e) => QueueItem.fromMap(e)).toList();
     } on PlatformException catch (e) {
@@ -72,26 +90,29 @@ class MediaNotificationService {
     }
   }
 
+  @override
   Future<bool> hasPermission() async {
     try {
-      final bool result = await _platform.invokeMethod('hasPermission');
+      final bool result = await methodChannel.invokeMethod('hasPermission');
       return result;
     } catch (e) {
       return false;
     }
   }
 
+  @override
   Future<void> openSettings() async {
     try {
-      await _platform.invokeMethod('openSettings');
+      await methodChannel.invokeMethod('openSettings');
     } catch (e) {
       print("Failed to open settings: $e");
     }
   }
 
+  @override
   Future<bool> playPause() async {
     try {
-      final bool result = await _platform.invokeMethod('playPause');
+      final bool result = await methodChannel.invokeMethod('playPause');
       return result;
     } catch (e) {
       print("Failed to play/pause: $e");
@@ -99,9 +120,10 @@ class MediaNotificationService {
     }
   }
 
+  @override
   Future<bool> skipToNext() async {
     try {
-      final bool result = await _platform.invokeMethod('skipToNext');
+      final bool result = await methodChannel.invokeMethod('skipToNext');
       return result;
     } catch (e) {
       print("Failed to skip to next: $e");
@@ -109,9 +131,10 @@ class MediaNotificationService {
     }
   }
 
+  @override
   Future<bool> skipToPrevious() async {
     try {
-      final bool result = await _platform.invokeMethod('skipToPrevious');
+      final bool result = await methodChannel.invokeMethod('skipToPrevious');
       return result;
     } catch (e) {
       print("Failed to skip to previous: $e");
@@ -119,9 +142,10 @@ class MediaNotificationService {
     }
   }
 
+  @override
   Future<bool> stop() async {
     try {
-      final bool result = await _platform.invokeMethod('stop');
+      final bool result = await methodChannel.invokeMethod('stop');
       return result;
     } catch (e) {
       print("Failed to stop: $e");
@@ -129,9 +153,10 @@ class MediaNotificationService {
     }
   }
 
+  @override
   Future<bool> seekTo(Duration position) async {
     try {
-      final bool result = await _platform.invokeMethod('seekTo', {
+      final bool result = await methodChannel.invokeMethod('seekTo', {
         'position': position.inMilliseconds,
       });
       return result;
@@ -141,9 +166,10 @@ class MediaNotificationService {
     }
   }
 
+  @override
   Future<bool> skipToQueueItem(int id) async {
     try {
-      final bool result = await _platform.invokeMethod('skipToQueueItem', {
+      final bool result = await methodChannel.invokeMethod('skipToQueueItem', {
         'id': id,
       });
       return result;
