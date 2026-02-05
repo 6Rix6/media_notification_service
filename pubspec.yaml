@@ -23,5 +23,7 @@ flutter:
       android:
         package: com.example.media_notification_service
         pluginClass: MediaNotificationServicePlugin
+      windows:
+        pluginClass: MediaNotificationServicePluginCApi
 
 license: MIT

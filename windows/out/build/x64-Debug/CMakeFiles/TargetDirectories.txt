@@ -1,0 +1,3 @@
+C:/Users/APCC-/project/media_notification_service/windows/out/build/x64-Debug/CMakeFiles/media_notification_service_plugin.dir
+C:/Users/APCC-/project/media_notification_service/windows/out/build/x64-Debug/CMakeFiles/edit_cache.dir
+C:/Users/APCC-/project/media_notification_service/windows/out/build/x64-Debug/CMakeFiles/rebuild_cache.dir
