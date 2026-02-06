@@ -73,7 +73,6 @@ class _MyAppState extends State<MyApp> {
 
     // Listen to queue updates
     _queueSub = _service.queueStream.listen((queue) {
-      print('Queue updated: $queue');
       setState(() {
         _queue = queue;
       });
