@@ -20,6 +20,11 @@ set(PLUGIN_NAME "media_notification_service_plugin")
 list(APPEND PLUGIN_SOURCES
   "media_notification_service_plugin.cpp"
   "media_notification_service_plugin.h"
+  "media_session_manager.cpp"
+  "media_session_manager.h"
+  "worker_thread.cpp"
+  "worker_thread.h"
+  "stream_controller.h"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
