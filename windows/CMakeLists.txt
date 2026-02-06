@@ -26,6 +26,8 @@ list(APPEND PLUGIN_SOURCES
   "worker_thread.h"
   "stream_controller.cpp"
   "stream_controller.h"
+  "periodic_timer.cpp"
+  "periodic_timer.h"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment

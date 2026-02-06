@@ -8,13 +8,13 @@ namespace media_notification_service
   void MediaNotificationServicePlugin::RegisterWithRegistrar(
       flutter::PluginRegistrarWindows *registrar)
   {
+    auto plugin = std::make_unique<MediaNotificationServicePlugin>();
+
     auto method_channel =
         std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
             registrar->messenger(),
             "com.example.media_notification_service/media",
             &flutter::StandardMethodCodec::GetInstance());
-
-    auto plugin = std::make_unique<MediaNotificationServicePlugin>();
 
     method_channel->SetMethodCallHandler(
         [plugin_pointer = plugin.get()](const auto &call, auto result)
@@ -29,7 +29,7 @@ namespace media_notification_service
         {
           plugin_pointer->worker_thread_.EnqueueTask([plugin_pointer]()
                                                      {
-                    plugin_pointer->media_session_manager_.SetupEventListeners(
+                    plugin_pointer->media_session_manager_.SetupMediaEventListeners(
                         [plugin_pointer]()
                         {
                             plugin_pointer->OnMediaChanged();
@@ -39,7 +39,34 @@ namespace media_notification_service
         [plugin_pointer = plugin.get()](const flutter::EncodableValue *arguments)
         {
           plugin_pointer->worker_thread_.EnqueueTask([plugin_pointer]()
-                                                     { plugin_pointer->media_session_manager_.RemoveEventListeners(); });
+                                                     { plugin_pointer->media_session_manager_.RemoveMediaEventListeners(); });
+        });
+
+    plugin->position_stream_handler_.RegisterEventChannel(
+        registrar,
+        "com.example.media_notification_service/position_stream",
+        [plugin_pointer = plugin.get()](const flutter::EncodableValue *arguments)
+        {
+          plugin_pointer->worker_thread_.EnqueueTask([plugin_pointer]()
+                                                     { plugin_pointer->media_session_manager_.SetupPositionEventListeners(
+                                                           [plugin_pointer]()
+                                                           {
+                                                             plugin_pointer->OnPositionChanged();
+                                                           }); });
+
+          plugin_pointer->position_timer_.Start(
+              std::chrono::milliseconds(100),
+              [plugin_pointer]()
+              {
+                plugin_pointer->worker_thread_.EnqueueTask([plugin_pointer]()
+                                                           { plugin_pointer->OnPositionChanged(); });
+              });
+        },
+        [plugin_pointer = plugin.get()](const flutter::EncodableValue *arguments)
+        {
+          plugin_pointer->position_timer_.Stop();
+          plugin_pointer->worker_thread_.EnqueueTask([plugin_pointer]()
+                                                     { plugin_pointer->media_session_manager_.RemovePositionEventListeners(); });
         });
 
     registrar->AddPlugin(std::move(plugin));
@@ -54,13 +81,22 @@ namespace media_notification_service
   MediaNotificationServicePlugin::~MediaNotificationServicePlugin()
   {
     worker_thread_.EnqueueTask([this]()
-                               { media_session_manager_.RemoveEventListeners(); });
+                               { media_session_manager_.RemoveMediaEventListeners(); });
   }
 
   void MediaNotificationServicePlugin::OnMediaChanged()
   {
     auto map = media_session_manager_.GetCurrentMediaInfo();
     media_stream_handler_.Send(flutter::EncodableValue(map));
+  }
+
+  void MediaNotificationServicePlugin::OnPositionChanged()
+  {
+    if (media_session_manager_.IsPlaying())
+    {
+      auto map = media_session_manager_.GetCurrentPositionInfo();
+      position_stream_handler_.Send(flutter::EncodableValue(map));
+    }
   }
 
   void MediaNotificationServicePlugin::HandleMethodCall(

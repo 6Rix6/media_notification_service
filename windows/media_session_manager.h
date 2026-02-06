@@ -12,7 +12,7 @@ namespace media_notification_service
     class MediaSessionManager
     {
     public:
-        using MediaChangedCallback = std::function<void()>;
+        using EventListenerCallback = std::function<void()>;
 
         MediaSessionManager();
         ~MediaSessionManager();
@@ -23,18 +23,32 @@ namespace media_notification_service
         bool Initialize();
 
         flutter::EncodableMap GetCurrentMediaInfo();
+        flutter::EncodableMap GetCurrentPositionInfo();
 
-        void SetupEventListeners(MediaChangedCallback callback);
-        void RemoveEventListeners();
+        void SetupMediaEventListeners(EventListenerCallback callback);
+        void RemoveMediaEventListeners();
+
+        void SetupPositionEventListeners(EventListenerCallback callback);
+        void RemovePositionEventListeners();
+
+        bool IsPlaying();
 
     private:
         winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager media_manager_{nullptr};
 
+        // tokens for media change event
         winrt::event_token sessions_changed_token_;
         winrt::event_token media_properties_changed_token_;
         winrt::event_token playback_info_changed_token_;
 
-        MediaChangedCallback on_media_changed_;
+        // tokens for position change event
+        winrt::event_token timeline_properties_changed_token_;
+
+        // callbacks
+        EventListenerCallback on_media_changed_;
+        EventListenerCallback on_position_changed_;
+
+        winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession GetCurrentSession();
     };
 
 } // namespace media_notification_service
