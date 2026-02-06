@@ -24,6 +24,7 @@ list(APPEND PLUGIN_SOURCES
   "media_session_manager.h"
   "worker_thread.cpp"
   "worker_thread.h"
+  "stream_controller.cpp"
   "stream_controller.h"
 )
 
