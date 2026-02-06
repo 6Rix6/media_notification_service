@@ -16,8 +16,10 @@ namespace media_notification_service
             "com.example.media_notification_service/media",
             &flutter::StandardMethodCodec::GetInstance());
 
+    auto plugin_pointer = plugin.get();
+
     method_channel->SetMethodCallHandler(
-        [plugin_pointer = plugin.get()](const auto &call, auto result)
+        [plugin_pointer](const auto &call, auto result)
         {
           plugin_pointer->HandleMethodCall(call, std::move(result));
         });
@@ -25,7 +27,7 @@ namespace media_notification_service
     plugin->media_stream_handler_.RegisterEventChannel(
         registrar,
         "com.example.media_notification_service/media_stream",
-        [plugin_pointer = plugin.get()](const flutter::EncodableValue *arguments)
+        [plugin_pointer](const flutter::EncodableValue *arguments)
         {
           plugin_pointer->worker_thread_.EnqueueTask([plugin_pointer]()
                                                      {
@@ -36,7 +38,7 @@ namespace media_notification_service
                         });
                     plugin_pointer->OnMediaChanged(); });
         },
-        [plugin_pointer = plugin.get()](const flutter::EncodableValue *arguments)
+        [plugin_pointer](const flutter::EncodableValue *arguments)
         {
           plugin_pointer->worker_thread_.EnqueueTask([plugin_pointer]()
                                                      { plugin_pointer->media_session_manager_.RemoveMediaEventListeners(); });
@@ -45,7 +47,7 @@ namespace media_notification_service
     plugin->position_stream_handler_.RegisterEventChannel(
         registrar,
         "com.example.media_notification_service/position_stream",
-        [plugin_pointer = plugin.get()](const flutter::EncodableValue *arguments)
+        [plugin_pointer](const flutter::EncodableValue *arguments)
         {
           plugin_pointer->worker_thread_.EnqueueTask([plugin_pointer]()
                                                      { plugin_pointer->media_session_manager_.SetupPositionEventListeners(
@@ -62,12 +64,17 @@ namespace media_notification_service
                                                            { plugin_pointer->OnPositionChanged(); });
               });
         },
-        [plugin_pointer = plugin.get()](const flutter::EncodableValue *arguments)
+        [plugin_pointer](const flutter::EncodableValue *arguments)
         {
           plugin_pointer->position_timer_.Stop();
           plugin_pointer->worker_thread_.EnqueueTask([plugin_pointer]()
                                                      { plugin_pointer->media_session_manager_.RemovePositionEventListeners(); });
         });
+
+    // queue stream does not supported on Windows
+    plugin->queue_stream_handler_.RegisterEventChannel(
+        registrar,
+        "com.example.media_notification_service/queue_stream");
 
     registrar->AddPlugin(std::move(plugin));
   }

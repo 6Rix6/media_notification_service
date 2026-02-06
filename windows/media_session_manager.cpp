@@ -1,7 +1,13 @@
 #include "media_session_manager.h"
 #include <flutter/encodable_value.h>
+#include <flutter/method_channel.h>
+#include <flutter/standard_method_codec.h>
+#include <winrt/Windows.Media.Control.h>
+#include <winrt/Windows.Storage.Streams.h>
 
-using namespace winrt::Windows::Media::Control;
+using namespace winrt;
+using namespace Windows::Media::Control;
+using namespace Windows::Storage::Streams;
 
 namespace media_notification_service
 {
@@ -58,35 +64,28 @@ namespace media_notification_service
             }
 
             auto props = session.TryGetMediaPropertiesAsync().get();
+            auto playback_info = session.GetPlaybackInfo();
+            auto status = playback_info.PlaybackStatus();
+            auto playback_state = PlaybackStatusToString(status);
+            bool is_playing = (status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing);
+
+            auto thumbnail = props.Thumbnail();
+            if (thumbnail)
+            {
+                auto image_data = IRandomAccessStreamReferenceToByteArray(thumbnail);
+                map[flutter::EncodableValue("albumArt")] =
+                    flutter::EncodableValue(flutter::EncodableValue(image_data));
+            }
+
             map[flutter::EncodableValue("title")] =
                 flutter::EncodableValue(winrt::to_string(props.Title()));
             map[flutter::EncodableValue("artist")] =
                 flutter::EncodableValue(winrt::to_string(props.Artist()));
             map[flutter::EncodableValue("album")] =
                 flutter::EncodableValue(winrt::to_string(props.AlbumTitle()));
-
-            auto playback_info = session.GetPlaybackInfo();
-            auto status = playback_info.PlaybackStatus();
-
-            std::string playback_state;
-            switch (status)
-            {
-            case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing:
-                playback_state = "playing";
-                break;
-            case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused:
-                playback_state = "paused";
-                break;
-            case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Stopped:
-                playback_state = "stopped";
-                break;
-            default:
-                playback_state = "unknown";
-                break;
-            }
-
-            map[flutter::EncodableValue("playbackState")] =
+            map[flutter::EncodableValue("state")] =
                 flutter::EncodableValue(playback_state);
+            map[flutter::EncodableValue("isPlaying")] = flutter::EncodableValue(is_playing);
         }
         catch (...)
         {
@@ -113,7 +112,6 @@ namespace media_notification_service
 
             int64_t stored_position = timeline.Position().count() / 10000;
             int64_t duration = timeline.EndTime().count() / 10000;
-            int64_t start_time = timeline.StartTime().count() / 10000;
 
             auto last_updated = timeline.LastUpdatedTime();
             auto last_updated_ms = winrt::clock::to_time_t(last_updated) * 1000;
@@ -134,28 +132,11 @@ namespace media_notification_service
                 }
             }
 
+            auto playback_state = PlaybackStatusToString(status);
+
             map[flutter::EncodableValue("position")] = flutter::EncodableValue(current_position);
             map[flutter::EncodableValue("duration")] = flutter::EncodableValue(duration);
-            map[flutter::EncodableValue("startTime")] = flutter::EncodableValue(start_time);
-            map[flutter::EncodableValue("lastUpdatedTime")] = flutter::EncodableValue(last_updated_ms);
-
-            std::string playback_state;
-            switch (status)
-            {
-            case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing:
-                playback_state = "playing";
-                break;
-            case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused:
-                playback_state = "paused";
-                break;
-            case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Stopped:
-                playback_state = "stopped";
-                break;
-            default:
-                playback_state = "unknown";
-                break;
-            }
-            map[flutter::EncodableValue("playbackState")] = flutter::EncodableValue(playback_state);
+            map[flutter::EncodableValue("state")] = flutter::EncodableValue(playback_state);
         }
         catch (...)
         {
@@ -183,6 +164,43 @@ namespace media_notification_service
         {
             return false;
         }
+    }
+
+    std::string MediaSessionManager::PlaybackStatusToString(
+        GlobalSystemMediaTransportControlsSessionPlaybackStatus status)
+    {
+        switch (status)
+        {
+        case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing:
+            return "STATE_PLAYING";
+        case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused:
+            return "STATE_PAUSED";
+        case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Stopped:
+        case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Closed:
+            return "STATE_STOPPED";
+        case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Changing:
+        case GlobalSystemMediaTransportControlsSessionPlaybackStatus::Opened:
+            return "STATE_BUFFERING";
+        default:
+            return "STATE_NONE";
+            break;
+        }
+    }
+
+    std::vector<uint8_t> MediaSessionManager::IRandomAccessStreamReferenceToByteArray(
+        winrt::Windows::Storage::Streams::IRandomAccessStreamReference const &stream_ref)
+    {
+        auto thumbnailStream = stream_ref.OpenReadAsync().get();
+        uint64_t size = thumbnailStream.Size();
+
+        Buffer buffer(static_cast<uint32_t>(size));
+        thumbnailStream.ReadAsync(buffer, static_cast<uint32_t>(size), InputStreamOptions::None).get();
+
+        std::vector<uint8_t> bytes(size);
+        auto dataReader = DataReader::FromBuffer(buffer);
+        dataReader.ReadBytes(bytes);
+
+        return bytes;
     }
 
     // event listeners

@@ -39,6 +39,7 @@ namespace media_notification_service
 
         StreamController media_stream_handler_;
         StreamController position_stream_handler_;
+        StreamController queue_stream_handler_;
 
         PeriodicTimer position_timer_;
     };

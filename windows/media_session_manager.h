@@ -49,8 +49,13 @@ namespace media_notification_service
         EventListenerCallback on_position_changed_;
 
         winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSession GetCurrentSession();
-    };
 
+        std::string PlaybackStatusToString(
+            winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus status);
+
+        std::vector<uint8_t> IRandomAccessStreamReferenceToByteArray(
+            winrt::Windows::Storage::Streams::IRandomAccessStreamReference const &stream_ref);
+    };
 } // namespace media_notification_service
 
 #endif // MEDIA_SESSION_MANAGER_H_
