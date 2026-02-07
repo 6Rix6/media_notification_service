@@ -15,6 +15,21 @@
 
 namespace media_notification_service
 {
+    enum class Method
+    {
+        GetCurrentMedia,
+        GetQueue,
+        HasPermission,
+        OpenSettings,
+        PlayPause,
+        SkipToNext,
+        SkipToPrevious,
+        Stop,
+        SeekTo,
+        SkipToQueueItem,
+        Unknown
+    };
+
     class MediaNotificationServicePlugin : public flutter::Plugin
     {
     public:
@@ -31,6 +46,8 @@ namespace media_notification_service
             const flutter::MethodCall<flutter::EncodableValue> &method_call,
             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
+        Method MethodStringToEnum(const std::string &method_name);
+
         void OnMediaChanged();
         void OnPositionChanged();
 
@@ -43,7 +60,6 @@ namespace media_notification_service
 
         PeriodicTimer position_timer_;
     };
-
 } // namespace media_notification_service
 
 #endif // FLUTTER_PLUGIN_MEDIA_NOTIFICATION_SERVICE_PLUGIN_H_

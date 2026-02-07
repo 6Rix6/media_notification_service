@@ -33,11 +33,20 @@ namespace media_notification_service
 
         bool IsPlaying();
 
+        void callCallbacks();
+
+        bool PlayPause();
+        bool SkipToNext();
+        bool SkipToPrevious();
+        bool Stop();
+        bool SeekTo(int64_t position_ms);
+
     private:
         winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionManager media_manager_{nullptr};
 
         // tokens for media change event
         winrt::event_token sessions_changed_token_;
+        winrt::event_token current_session_changed_token_;
         winrt::event_token media_properties_changed_token_;
         winrt::event_token playback_info_changed_token_;
 
@@ -56,6 +65,7 @@ namespace media_notification_service
         std::vector<uint8_t> IRandomAccessStreamReferenceToByteArray(
             winrt::Windows::Storage::Streams::IRandomAccessStreamReference const &stream_ref);
     };
+
 } // namespace media_notification_service
 
 #endif // MEDIA_SESSION_MANAGER_H_

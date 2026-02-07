@@ -111,29 +111,121 @@ namespace media_notification_service
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result)
   {
     std::string name = method_call.method_name();
+    Method method = MethodStringToEnum(name);
 
-    if (name == "getCurrentMedia")
+    switch (method)
+    {
+    case Method::GetCurrentMedia:
     {
       auto result_shared = std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>(std::move(result));
 
       worker_thread_.EnqueueTask([this, result = result_shared]()
                                  {
-                auto map = media_session_manager_.GetCurrentMediaInfo();
-                result->Success(flutter::EncodableValue(map)); });
+             auto map = media_session_manager_.GetCurrentMediaInfo();
+             result->Success(flutter::EncodableValue(map)); });
     }
-    else if (name == "getQueue")
+    break;
+    case Method::PlayPause:
+    {
+      auto result_shared = std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>(std::move(result));
+
+      worker_thread_.EnqueueTask([this, result = result_shared]()
+                                 {
+             auto success = media_session_manager_.PlayPause();
+             result->Success(flutter::EncodableValue(success)); });
+    }
+    break;
+    case Method::SkipToNext:
+    {
+      auto result_shared = std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>(std::move(result));
+
+      worker_thread_.EnqueueTask([this, result = result_shared]()
+                                 {
+             auto success = media_session_manager_.SkipToNext();
+             result->Success(flutter::EncodableValue(success)); });
+    }
+    break;
+    case Method::SkipToPrevious:
+    {
+      auto result_shared = std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>(std::move(result));
+
+      worker_thread_.EnqueueTask([this, result = result_shared]()
+                                 {
+             auto success = media_session_manager_.SkipToPrevious();
+             result->Success(flutter::EncodableValue(success)); });
+    }
+    break;
+    case Method::Stop:
+    {
+      auto result_shared = std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>(std::move(result));
+
+      worker_thread_.EnqueueTask([this, result = result_shared]()
+                                 {
+             auto success = media_session_manager_.Stop();
+             result->Success(flutter::EncodableValue(success)); });
+    }
+    case Method::SeekTo:
+    {
+      auto result_shared = std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>(std::move(result));
+      // result->Success(flutter::EncodableValue(true));
+
+      int64_t position_ms = 0;
+      if (const auto *arg = std::get_if<flutter::EncodableMap>(method_call.arguments()))
+      {
+        auto it = arg->find(flutter::EncodableValue("position"));
+        if (it != arg->end())
+        {
+          position_ms = it->second.LongValue();
+        }
+      }
+
+      worker_thread_.EnqueueTask([this, position_ms, result = result_shared]()
+                                 { 
+                                   auto success = media_session_manager_.SeekTo(position_ms);
+                                   result->Success(flutter::EncodableValue(success)); });
+    }
+    break;
+    // methods not supported on Windows
+    case Method::GetQueue:
     {
       flutter::EncodableList list = {};
       result->Success(flutter::EncodableValue(list));
     }
-    else if (name == "hasPermission")
+    break;
+    case Method::SkipToQueueItem:
+    case Method::HasPermission:
+    case Method::OpenSettings:
     {
       result->Success(flutter::EncodableValue(true));
     }
-    else
-    {
+    break;
+    case Method::Unknown:
+    default:
       result->NotImplemented();
+      break;
     }
   }
 
+  Method MediaNotificationServicePlugin::MethodStringToEnum(const std::string &method_name)
+  {
+    static const std::unordered_map<std::string, Method> method_map = {
+        {"getCurrentMedia", Method::GetCurrentMedia},
+        {"getQueue", Method::GetQueue},
+        {"hasPermission", Method::HasPermission},
+        {"openSettings", Method::OpenSettings},
+        {"playPause", Method::PlayPause},
+        {"skipToNext", Method::SkipToNext},
+        {"skipToPrevious", Method::SkipToPrevious},
+        {"stop", Method::Stop},
+        {"seekTo", Method::SeekTo},
+        {"skipToQueueItem", Method::SkipToQueueItem}};
+
+    auto it = method_map.find(method_name);
+    if (it != method_map.end())
+    {
+      return it->second;
+    }
+
+    return Method::Unknown;
+  }
 } // namespace media_notification_service

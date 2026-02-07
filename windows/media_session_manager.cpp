@@ -4,10 +4,12 @@
 #include <flutter/standard_method_codec.h>
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/Windows.Storage.Streams.h>
+#include <winrt/Windows.Foundation.h>
 
 using namespace winrt;
 using namespace Windows::Media::Control;
 using namespace Windows::Storage::Streams;
+using namespace Windows::Foundation;
 
 namespace media_notification_service
 {
@@ -23,6 +25,7 @@ namespace media_notification_service
         try
         {
             media_manager_ = GlobalSystemMediaTransportControlsSessionManager::RequestAsync().get();
+
             return media_manager_ != nullptr;
         }
         catch (...)
@@ -32,7 +35,6 @@ namespace media_notification_service
     }
 
     // helpers
-
     GlobalSystemMediaTransportControlsSession MediaSessionManager::GetCurrentSession()
     {
         if (!media_manager_)
@@ -86,6 +88,7 @@ namespace media_notification_service
             map[flutter::EncodableValue("state")] =
                 flutter::EncodableValue(playback_state);
             map[flutter::EncodableValue("isPlaying")] = flutter::EncodableValue(is_playing);
+            map[flutter::EncodableValue("songChanged")] = flutter::EncodableValue(true);
         }
         catch (...)
         {
@@ -166,6 +169,115 @@ namespace media_notification_service
         }
     }
 
+    void MediaSessionManager::callCallbacks()
+    {
+        if (on_media_changed_)
+        {
+            on_media_changed_();
+        }
+        if (on_position_changed_)
+        {
+            on_position_changed_();
+        }
+    }
+
+    bool MediaSessionManager::PlayPause()
+    {
+        try
+        {
+            auto session = GetCurrentSession();
+            if (!session)
+            {
+                return false;
+            }
+
+            session.TryTogglePlayPauseAsync().get();
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    bool MediaSessionManager::SkipToNext()
+    {
+        try
+        {
+            auto session = GetCurrentSession();
+            if (!session)
+            {
+                return false;
+            }
+
+            session.TrySkipNextAsync().get();
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    bool MediaSessionManager::SkipToPrevious()
+    {
+        try
+        {
+            auto session = GetCurrentSession();
+            if (!session)
+            {
+                return false;
+            }
+
+            session.TrySkipPreviousAsync().get();
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    bool MediaSessionManager::Stop()
+    {
+        try
+        {
+            auto session = GetCurrentSession();
+            if (!session)
+            {
+                return false;
+            }
+
+            session.TryStopAsync().get();
+            return true;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
+    bool MediaSessionManager::SeekTo(int64_t position_ms)
+    {
+        try
+        {
+            auto session = GetCurrentSession();
+            if (!session)
+            {
+                return false;
+            }
+
+            int64_t ticks = position_ms * 10000;
+            bool success = session.TryChangePlaybackPositionAsync(ticks).get();
+
+            return success;
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
+
     std::string MediaSessionManager::PlaybackStatusToString(
         GlobalSystemMediaTransportControlsSessionPlaybackStatus status)
     {
@@ -217,10 +329,13 @@ namespace media_notification_service
             sessions_changed_token_ = media_manager_.SessionsChanged(
                 [this](auto &&, auto &&)
                 {
-                    if (on_media_changed_)
-                    {
-                        on_media_changed_();
-                    }
+                    callCallbacks();
+                });
+
+            current_session_changed_token_ = media_manager_.CurrentSessionChanged(
+                [this](auto &&, auto &&)
+                {
+                    callCallbacks();
                 });
 
             auto session = GetCurrentSession();
@@ -261,6 +376,12 @@ namespace media_notification_service
             {
                 media_manager_.SessionsChanged(sessions_changed_token_);
                 sessions_changed_token_ = {};
+            }
+
+            if (current_session_changed_token_)
+            {
+                media_manager_.CurrentSessionChanged(current_session_changed_token_);
+                current_session_changed_token_ = {};
             }
 
             auto session = media_manager_.GetCurrentSession();
