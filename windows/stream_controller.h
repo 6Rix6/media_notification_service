@@ -6,6 +6,8 @@
 #include <mutex>
 #include <memory>
 #include <functional>
+#include <queue>
+#include <windows.h>
 #include <string>
 
 namespace flutter
@@ -44,9 +46,15 @@ namespace media_notification_service
         std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> OnCancel(
             const flutter::EncodableValue *arguments);
 
+        static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+        void ProcessPendingEvents();
+
         std::unique_ptr<flutter::EventChannel<flutter::EncodableValue>> event_channel_;
         std::unique_ptr<flutter::EventSink<flutter::EncodableValue>> event_sink_;
         std::mutex sink_mutex_;
+        std::queue<flutter::EncodableValue> pending_events_;
+
+        HWND message_window_;
 
         OnListenCallback on_listen_callback_;
         OnCancelCallback on_cancel_callback_;
