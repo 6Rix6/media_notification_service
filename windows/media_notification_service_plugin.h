@@ -48,7 +48,7 @@ namespace media_notification_service
 
         Method MethodStringToEnum(const std::string &method_name);
 
-        void OnMediaChanged();
+        void OnMediaChanged(bool song_changed = false);
         void OnPositionChanged();
 
         WorkerThread worker_thread_;

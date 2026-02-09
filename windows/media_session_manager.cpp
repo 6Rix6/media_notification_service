@@ -18,6 +18,7 @@ namespace media_notification_service
     MediaSessionManager::~MediaSessionManager()
     {
         RemoveMediaEventListeners();
+        RemovePositionEventListeners();
     }
 
     bool MediaSessionManager::Initialize()
@@ -88,7 +89,6 @@ namespace media_notification_service
             map[flutter::EncodableValue("state")] =
                 flutter::EncodableValue(playback_state);
             map[flutter::EncodableValue("isPlaying")] = flutter::EncodableValue(is_playing);
-            map[flutter::EncodableValue("songChanged")] = flutter::EncodableValue(true);
         }
         catch (...)
         {
@@ -112,6 +112,12 @@ namespace media_notification_service
             auto timeline = session.GetTimelineProperties();
             auto playback_info = session.GetPlaybackInfo();
             auto status = playback_info.PlaybackStatus();
+            auto playback_rate = playback_info.PlaybackRate().Value();
+
+            if (playback_rate <= 0.0)
+            {
+                playback_rate = 1.0;
+            }
 
             int64_t stored_position = timeline.Position().count() / 10000;
             int64_t duration = timeline.EndTime().count() / 10000;
@@ -127,7 +133,8 @@ namespace media_notification_service
             if (status == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing)
             {
                 int64_t elapsed = now_ms - last_updated_ms;
-                current_position = stored_position + elapsed;
+                int64_t adjusted_elapsed = static_cast<int64_t>(elapsed * playback_rate);
+                current_position = stored_position + adjusted_elapsed;
 
                 if (duration > 0 && current_position > duration)
                 {
@@ -173,7 +180,7 @@ namespace media_notification_service
     {
         if (on_media_changed_)
         {
-            on_media_changed_();
+            on_media_changed_(true);
         }
         if (on_position_changed_)
         {
@@ -316,8 +323,140 @@ namespace media_notification_service
     }
 
     // event listeners
+    void MediaSessionManager::SetupSessionSpecificListeners()
+    {
+        auto session = GetCurrentSession();
+        if (!session)
+            return;
 
-    void MediaSessionManager::SetupMediaEventListeners(EventListenerCallback callback)
+        try
+        {
+            media_properties_changed_token_ = session.MediaPropertiesChanged(
+                [this](auto &&, auto &&)
+                {
+                    if (on_media_changed_)
+                    {
+                        on_media_changed_(true);
+                    }
+                });
+
+            playback_info_changed_token_ = session.PlaybackInfoChanged(
+                [this](auto &&, auto &&)
+                {
+                    if (on_media_changed_)
+                    {
+                        on_media_changed_(false);
+                    }
+                });
+        }
+        catch (...)
+        {
+        }
+    }
+
+    void MediaSessionManager::RemoveSessionSpecificListeners()
+    {
+        if (!media_manager_)
+            return;
+
+        try
+        {
+            auto session = media_manager_.GetCurrentSession();
+            if (session)
+            {
+                if (media_properties_changed_token_)
+                {
+                    session.MediaPropertiesChanged(media_properties_changed_token_);
+                    media_properties_changed_token_ = {};
+                }
+
+                if (playback_info_changed_token_)
+                {
+                    session.PlaybackInfoChanged(playback_info_changed_token_);
+                    playback_info_changed_token_ = {};
+                }
+            }
+        }
+        catch (...)
+        {
+        }
+    }
+
+    void MediaSessionManager::SetupPositionSessionSpecificListeners()
+    {
+        auto session = GetCurrentSession();
+        if (!session)
+            return;
+
+        try
+        {
+            timeline_properties_changed_token_ = session.TimelinePropertiesChanged(
+                [this](auto &&, auto &&)
+                {
+                    if (on_position_changed_)
+                    {
+                        on_position_changed_();
+                    }
+                });
+
+            playback_info_changed_token_for_position_ = session.PlaybackInfoChanged(
+                [this](auto &&, auto &&)
+                {
+                    if (on_position_changed_)
+                    {
+                        on_position_changed_();
+                    }
+                });
+
+            media_properties_changed_token_for_position_ = session.MediaPropertiesChanged(
+                [this](auto &&, auto &&)
+                {
+                    if (on_position_changed_)
+                    {
+                        on_position_changed_();
+                    }
+                });
+        }
+        catch (...)
+        {
+        }
+    }
+
+    void MediaSessionManager::RemovePositionSessionSpecificListeners()
+    {
+        if (!media_manager_)
+            return;
+
+        try
+        {
+            auto session = media_manager_.GetCurrentSession();
+            if (session)
+            {
+                if (timeline_properties_changed_token_)
+                {
+                    session.TimelinePropertiesChanged(timeline_properties_changed_token_);
+                    timeline_properties_changed_token_ = {};
+                }
+
+                if (playback_info_changed_token_for_position_)
+                {
+                    session.PlaybackInfoChanged(playback_info_changed_token_for_position_);
+                    playback_info_changed_token_for_position_ = {};
+                }
+
+                if (media_properties_changed_token_for_position_)
+                {
+                    session.MediaPropertiesChanged(media_properties_changed_token_for_position_);
+                    media_properties_changed_token_for_position_ = {};
+                }
+            }
+        }
+        catch (...)
+        {
+        }
+    }
+
+    void MediaSessionManager::SetupMediaEventListeners(MediaEventListenerCallback callback)
     {
         on_media_changed_ = callback;
 
@@ -335,30 +474,12 @@ namespace media_notification_service
             current_session_changed_token_ = media_manager_.CurrentSessionChanged(
                 [this](auto &&, auto &&)
                 {
+                    RemoveSessionSpecificListeners();
+                    SetupSessionSpecificListeners();
                     callCallbacks();
                 });
 
-            auto session = GetCurrentSession();
-            if (session)
-            {
-                media_properties_changed_token_ = session.MediaPropertiesChanged(
-                    [this](auto &&, auto &&)
-                    {
-                        if (on_media_changed_)
-                        {
-                            on_media_changed_();
-                        }
-                    });
-
-                playback_info_changed_token_ = session.PlaybackInfoChanged(
-                    [this](auto &&, auto &&)
-                    {
-                        if (on_media_changed_)
-                        {
-                            on_media_changed_();
-                        }
-                    });
-            }
+            SetupSessionSpecificListeners();
         }
         catch (...)
         {
@@ -372,18 +493,6 @@ namespace media_notification_service
 
         try
         {
-            if (sessions_changed_token_)
-            {
-                media_manager_.SessionsChanged(sessions_changed_token_);
-                sessions_changed_token_ = {};
-            }
-
-            if (current_session_changed_token_)
-            {
-                media_manager_.CurrentSessionChanged(current_session_changed_token_);
-                current_session_changed_token_ = {};
-            }
-
             auto session = media_manager_.GetCurrentSession();
             if (session)
             {
@@ -416,36 +525,18 @@ namespace media_notification_service
 
         try
         {
-            auto session = GetCurrentSession();
-            if (session)
-            {
-                timeline_properties_changed_token_ = session.TimelinePropertiesChanged(
-                    [this](auto &&, auto &&)
+            current_session_changed_token_for_position_ = media_manager_.CurrentSessionChanged(
+                [this](auto &&, auto &&)
+                {
+                    RemovePositionSessionSpecificListeners();
+                    SetupPositionSessionSpecificListeners();
+                    if (on_position_changed_)
                     {
-                        if (on_position_changed_)
-                        {
-                            on_position_changed_();
-                        }
-                    });
+                        on_position_changed_();
+                    }
+                });
 
-                playback_info_changed_token_ = session.PlaybackInfoChanged(
-                    [this](auto &&, auto &&)
-                    {
-                        if (on_position_changed_)
-                        {
-                            on_position_changed_();
-                        }
-                    });
-
-                media_properties_changed_token_ = session.MediaPropertiesChanged(
-                    [this](auto &&, auto &&)
-                    {
-                        if (on_position_changed_)
-                        {
-                            on_position_changed_();
-                        }
-                    });
-            }
+            SetupPositionSessionSpecificListeners();
         }
         catch (...)
         {
@@ -459,21 +550,13 @@ namespace media_notification_service
 
         try
         {
-            auto session = GetCurrentSession();
-            if (session)
+            if (current_session_changed_token_for_position_)
             {
-                if (timeline_properties_changed_token_)
-                {
-                    session.TimelinePropertiesChanged(timeline_properties_changed_token_);
-                    timeline_properties_changed_token_ = {};
-                }
-
-                if (playback_info_changed_token_)
-                {
-                    session.PlaybackInfoChanged(playback_info_changed_token_);
-                    playback_info_changed_token_ = {};
-                }
+                media_manager_.CurrentSessionChanged(current_session_changed_token_for_position_);
+                current_session_changed_token_for_position_ = {};
             }
+
+            RemovePositionSessionSpecificListeners();
         }
         catch (...)
         {
@@ -481,4 +564,5 @@ namespace media_notification_service
 
         on_position_changed_ = nullptr;
     }
+
 } // namespace media_notification_service

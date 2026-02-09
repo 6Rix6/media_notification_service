@@ -32,11 +32,11 @@ namespace media_notification_service
           plugin_pointer->worker_thread_.EnqueueTask([plugin_pointer]()
                                                      {
                     plugin_pointer->media_session_manager_.SetupMediaEventListeners(
-                        [plugin_pointer]()
+                        [plugin_pointer](bool song_changed)
                         {
-                            plugin_pointer->OnMediaChanged();
+                            plugin_pointer->OnMediaChanged(song_changed);
                         });
-                    plugin_pointer->OnMediaChanged(); });
+                    plugin_pointer->OnMediaChanged(true); });
         },
         [plugin_pointer](const flutter::EncodableValue *arguments)
         {
@@ -71,7 +71,7 @@ namespace media_notification_service
                                                      { plugin_pointer->media_session_manager_.RemovePositionEventListeners(); });
         });
 
-    // queue stream does not supported on Windows
+    // queue stream is not supported on Windows
     plugin->queue_stream_handler_.RegisterEventChannel(
         registrar,
         "com.example.media_notification_service/queue_stream");
@@ -91,19 +91,17 @@ namespace media_notification_service
                                { media_session_manager_.RemoveMediaEventListeners(); });
   }
 
-  void MediaNotificationServicePlugin::OnMediaChanged()
+  void MediaNotificationServicePlugin::OnMediaChanged(bool song_changed)
   {
     auto map = media_session_manager_.GetCurrentMediaInfo();
+    map[flutter::EncodableValue("songChanged")] = flutter::EncodableValue(song_changed);
     media_stream_handler_.Send(flutter::EncodableValue(map));
   }
 
   void MediaNotificationServicePlugin::OnPositionChanged()
   {
-    if (media_session_manager_.IsPlaying())
-    {
-      auto map = media_session_manager_.GetCurrentPositionInfo();
-      position_stream_handler_.Send(flutter::EncodableValue(map));
-    }
+    auto map = media_session_manager_.GetCurrentPositionInfo();
+    position_stream_handler_.Send(flutter::EncodableValue(map));
   }
 
   void MediaNotificationServicePlugin::HandleMethodCall(
@@ -167,7 +165,6 @@ namespace media_notification_service
     case Method::SeekTo:
     {
       auto result_shared = std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>>(std::move(result));
-      // result->Success(flutter::EncodableValue(true));
 
       int64_t position_ms = 0;
       if (const auto *arg = std::get_if<flutter::EncodableMap>(method_call.arguments()))
