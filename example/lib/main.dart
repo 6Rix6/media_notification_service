@@ -73,7 +73,6 @@ class _MyAppState extends State<MyApp> {
 
     // Listen to queue updates
     _queueSub = _service.queueStream.listen((queue) {
-      print('Queue updated: $queue');
       setState(() {
         _queue = queue;
       });
@@ -83,6 +82,19 @@ class _MyAppState extends State<MyApp> {
     await _checkPermission();
 
     // get initial data
+    if (_hasPermission) {
+      final media = await _service.getCurrentMedia();
+      final queue = await _service.getQueue();
+      setState(() {
+        _currentMedia = media;
+        _queue = queue;
+      });
+    }
+  }
+
+  // force a data reload
+  void _reloadData() async {
+    await _checkPermission();
     if (_hasPermission) {
       final media = await _service.getCurrentMedia();
       final queue = await _service.getQueue();
@@ -105,7 +117,12 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: Text('Media Notification Service')),
+        appBar: AppBar(
+          title: Text('Media Notification Service'),
+          actions: [
+            IconButton(icon: Icon(Icons.refresh), onPressed: _reloadData),
+          ],
+        ),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(16.0),

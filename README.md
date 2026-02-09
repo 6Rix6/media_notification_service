@@ -1,25 +1,39 @@
 # Media Notification Service
 
-A Flutter plugin for Android that allows you to access and control media playing from other apps through the Android MediaSession API.
+A Flutter plugin for **Android** and **Windows** that allows you to access and control media playing from other apps through the system media APIs.
+
+## Supported Platforms
+
+| Platform | Status |
+|----------|--------|
+| Android  | ✅ Fully supported |
+| Windows  | ✅ Supported (with some limitations) |
 
 ## Features
 
 - Access currently playing media information (title, artist, album, album art)
 - Control playback (play, pause, skip, stop, seek)
 - Real-time playback position tracking
-- Queue information
-- Skip to queue item
+- Queue information (Android only)
+- Skip to queue item (Android only)
 - Stream-based updates for media changes
 - Album art retrieval
 
 ## Requirements
 
+### Android
 - Flutter SDK: `>=3.0.0`
 - Kotlin support enabled in your Android project
 
+### Windows
+- Flutter SDK: `>=3.0.0`
+- Windows 10 or later
+
 ## Setup
 
-### 1. Update AndroidManifest.xml
+### Android
+
+#### 1. Update AndroidManifest.xml
 
 Add the notification listener service to your app's `AndroidManifest.xml`:
 
@@ -52,7 +66,7 @@ Add the notification listener service to your app's `AndroidManifest.xml`:
 </manifest>
 ```
 
-### 2. Request Notification Listener Permission
+#### 2. Request Notification Listener Permission
 
 Users must grant notification listener permission to your app. You can check and request this permission:
 
@@ -72,6 +86,10 @@ if (!hasPermission) {
 }
 ```
 
+### Windows
+
+No special setup required. Windows uses the System Media Transport Controls (SMTC) API which doesn't require any permissions.
+
 ## API Reference
 
 > see example app for more details.
@@ -82,21 +100,23 @@ Main service class for interacting with media sessions.
 
 #### Methods
 
-| Method                      | Return Type                   | Description                                               |
-| --------------------------- | ----------------------------- | --------------------------------------------------------- |
-| `mediaStream`               | `Stream<MediaInfoWithQueue?>` | Stream of media information updates                       |
-| `positionStream`            | `Stream<PositionInfo?>`       | Stream of playback position updates                       |
-| `queueStream`               | `Stream<List<QueueItem?>?>`   | Stream of queue updates                                   |
-| `getCurrentMedia()`         | `Future<MediaInfo?>`          | Get current media information                             |
-| `getQueue()`                | `Future<List<QueueItem?>?>`   | Get current queue                                         |
-| `hasPermission()`           | `Future<bool>`                | Check if notification listener permission is granted      |
-| `openSettings()`            | `Future<void>`                | Open system settings for notification listener permission |
-| `playPause()`               | `Future<bool>`                | Toggle play/pause                                         |
-| `skipToNext()`              | `Future<bool>`                | Skip to next track                                        |
-| `skipToPrevious()`          | `Future<bool>`                | Skip to previous track                                    |
-| `stop()`                    | `Future<bool>`                | Stop playback                                             |
-| `seekTo(Duration position)` | `Future<bool>`                | Seek to specific position                                 |
-| `skipToQueueItem(int id)`   | `Future<bool>`                | Skip to specific queue item                               |
+| Method                      | Return Type                   | Description                                               | Android | Windows |
+| --------------------------- | ----------------------------- | --------------------------------------------------------- | :-----: | :-----: |
+| `mediaStream`               | `Stream<MediaInfoWithQueue?>` | Stream of media information updates                       | ✅ | ✅ |
+| `positionStream`            | `Stream<PositionInfo?>`       | Stream of playback position updates                       | ✅ | ✅ |
+| `queueStream`               | `Stream<List<QueueItem?>?>`   | Stream of queue updates                                   | ✅ | ❌ |
+| `getCurrentMedia()`         | `Future<MediaInfo?>`          | Get current media information                             | ✅ | ✅ |
+| `getQueue()`                | `Future<List<QueueItem?>?>`   | Get current queue                                         | ✅ | ❌ |
+| `hasPermission()`           | `Future<bool>`                | Check if notification listener permission is granted      | ✅ | ⚪ |
+| `openSettings()`            | `Future<void>`                | Open system settings for notification listener permission | ✅ | ⚪ |
+| `playPause()`               | `Future<bool>`                | Toggle play/pause                                         | ✅ | ✅ |
+| `skipToNext()`              | `Future<bool>`                | Skip to next track                                        | ✅ | ✅ |
+| `skipToPrevious()`          | `Future<bool>`                | Skip to previous track                                    | ✅ | ✅ |
+| `stop()`                    | `Future<bool>`                | Stop playback                                             | ✅ | ✅ |
+| `seekTo(Duration position)` | `Future<bool>`                | Seek to specific position                                 | ✅ | ✅ |
+| `skipToQueueItem(int id)`   | `Future<bool>`                | Skip to specific queue item                               | ✅ | ❌ |
+
+> **Legend**: ✅ Supported | ❌ Not supported (returns empty/false) | ⚪ Not applicable (always returns true)
 
 ### PlaybackState
 
@@ -115,7 +135,7 @@ Enum representing the current playback state:
 - `skippingToNext`
 - `skippingToQueueItem`
 
-see [Android Developers](https://developer.android.com/reference/android/media/session/PlaybackState#nested-classes)
+Based on [Android PlaybackState](https://developer.android.com/reference/android/media/session/PlaybackState#nested-classes)
 
 ## Important Notes
 
@@ -127,10 +147,18 @@ see [Android Developers](https://developer.android.com/reference/android/media/s
 
 ### Limitations
 
-- Only works on Android
+#### Android
 - Requires the media app to properly implement MediaSession
 - Some apps may not provide complete metadata
 - Album art size depends on the source app (may be large)
+
+#### Windows
+- Queue-related features are not supported (`queueStream`, `getQueue()`, `skipToQueueItem()`)
+- Permission methods (`hasPermission()`, `openSettings()`) always return `true` / do nothing as no permission is required
+- Requires the media app to use Windows System Media Transport Controls (SMTC)
+- `positionStream` stability depends on the media app's SMTC implementation
+  - ✅ Works correctly: Spotify (desktop app)
+  - ⚠️ Unstable: YouTube Music (browser version)
 
 ## License
 

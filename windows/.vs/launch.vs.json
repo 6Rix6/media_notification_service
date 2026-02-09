@@ -1,0 +1,13 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "dll",
+      "exe": "",
+      "project": "CMakeLists.txt",
+      "projectTarget": "media_notification_service_plugin.dll",
+      "name": "media_notification_service_plugin.dll"
+    }
+  ]
+}

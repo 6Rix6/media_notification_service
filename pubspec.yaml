@@ -1,6 +1,6 @@
 name: media_notification_service
 description: A Flutter plugin for accessing Android media notifications
-version: 0.0.1
+version: 0.0.2
 homepage: https://github.com/6Rix6/media_notification_service
 
 environment:
@@ -23,5 +23,7 @@ flutter:
       android:
         package: com.example.media_notification_service
         pluginClass: MediaNotificationServicePlugin
+      windows:
+        pluginClass: MediaNotificationServicePluginCApi
 
 license: MIT
